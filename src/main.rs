@@ -26,7 +26,13 @@ fn main() {
 
 fn print_meta(file: &str) {
     let ftype = get_file_type(&file);
-    let meta = fs::metadata(file).unwrap();
+    let meta = match fs::metadata(file) {
+        Ok(x) => x,
+        Err(_) => {
+            println!("???\t\t{}", file);
+            return;
+        }
+    };
     let perms: &str = &get_permissions(meta.permissions().mode())
         .iter()
         .collect::<String>();
@@ -42,7 +48,10 @@ fn print_meta(file: &str) {
 
 // Identify the type of file
 fn get_file_type(file: &str) -> char {
-    let meta = fs::metadata(file).unwrap();
+    let meta = match fs::metadata(file) {
+        Ok(x) => x,
+        Err(_) => return '?',
+    };
     let ftype: char;
     if meta.file_type().is_symlink() {
         ftype = 's';
