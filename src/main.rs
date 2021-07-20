@@ -9,12 +9,12 @@ fn main() {
         .author("geno")
         .about("List files with hex formatted output")
         .setting(AppSettings::TrailingVarArg)
-        .arg(Arg::from_usage("[cmd]... 'files to list'"))
+        .arg(Arg::from_usage("[file]... 'files to list'"))
         .get_matches();
 
     // Parse the command arguments, or default to current directory
-    let trail: Vec<&str> = match matches.values_of("cmd") {
-        Some(_) => matches.values_of("cmd").unwrap().collect(),
+    let trail: Vec<&str> = match matches.values_of("file") {
+        Some(_) => matches.values_of("file").unwrap().collect(),
         None => vec!["."],
     };
 
