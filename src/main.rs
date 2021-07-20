@@ -1,6 +1,6 @@
 use clap::{App, AppSettings, Arg};
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::str;
 
 fn main() {
@@ -9,30 +9,25 @@ fn main() {
         .author("geno")
         .about("List files with hex formatted output")
         .setting(AppSettings::TrailingVarArg)
-        .arg(Arg::from_usage("<cmd>... 'files to list'"))
+        .arg(Arg::from_usage("[cmd]... 'files to list'"))
         .get_matches();
 
-    let trail: Vec<&str> = matches.values_of("cmd").unwrap().collect();
+    // Parse the command arguments, or default to current directory
+    let trail: Vec<&str> = match matches.values_of("cmd") {
+        Some(_) => matches.values_of("cmd").unwrap().collect(),
+        None => vec!["."],
+    };
+
+    // Iterate through every file listed as an argument
     for i in trail {
         print_meta(i);
     }
 }
 
 fn print_meta(file: &str) {
+    let ftype = get_file_type(&file);
     let meta = fs::metadata(file).unwrap();
-    let ftype: char;
-    if meta.file_type().is_symlink() {
-        ftype = 's';
-    } else if meta.file_type().is_dir() {
-        ftype = 'd';
-    } else if (meta.permissions().mode() & 0o060000) == 0o060000 {
-        ftype = 'b';
-    } else if (meta.permissions().mode() & 0o020000) == 0o020000 {
-        ftype = 'c';
-    } else {
-        ftype = '-';
-    };
-    let perms: &str = &print_permissions(meta.permissions().mode())
+    let perms: &str = &get_permissions(meta.permissions().mode())
         .iter()
         .collect::<String>();
     println!(
@@ -45,7 +40,30 @@ fn print_meta(file: &str) {
     );
 }
 
-fn print_permissions(mode: u32) -> Vec<char> {
+// Identify the type of file
+fn get_file_type(file: &str) -> char {
+    let meta = fs::metadata(file).unwrap();
+    let ftype: char;
+    if meta.file_type().is_symlink() {
+        ftype = 's';
+    } else if meta.file_type().is_dir() {
+        ftype = 'd';
+    } else if meta.file_type().is_block_device() {
+        ftype = 'b';
+    } else if meta.file_type().is_char_device() {
+        ftype = 'c';
+    } else if meta.file_type().is_fifo() {
+        ftype = 'f';
+    } else if meta.file_type().is_socket() {
+        ftype = 'n';
+    } else {
+        ftype = '-';
+    }
+    ftype
+}
+
+// Translate the permission values into ascii characters
+fn get_permissions(mode: u32) -> Vec<char> {
     let mut d: Vec<char> = Vec::<char>::new();
     for i in 0..3 {
         let tmp = (mode >> (2 - i) * 3) & 0x7;
@@ -53,17 +71,17 @@ fn print_permissions(mode: u32) -> Vec<char> {
             d.push('r');
         } else {
             d.push('-')
-        };
+        }
         if (tmp & 2) == 2 {
             d.push('w');
         } else {
             d.push('-')
-        };
+        }
         if (tmp & 1) == 1 {
             d.push('x');
         } else {
             d.push('-')
-        };
+        }
     }
     d
 }
